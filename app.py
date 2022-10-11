@@ -1,4 +1,3 @@
-from IPython import embed
 from flask import Flask, jsonify, abort, make_response, request
 from flask import url_for
 from flask_httpauth import HTTPBasicAuth
