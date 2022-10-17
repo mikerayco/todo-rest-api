@@ -1,22 +1,32 @@
+from datetime import timedelta
+
 from flask import Flask, jsonify, abort, make_response, request
 from flask import url_for
-from flask_httpauth import HTTPBasicAuth
+
+from flask_jwt_extended import create_access_token
+from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import jwt_required
+from flask_jwt_extended import JWTManager
 
 
 app = Flask(__name__)
-auth = HTTPBasicAuth()
+app.config["JWT_SECRET_KEY"] = "SuperSecretKey"
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=5)
+jwt = JWTManager(app)
 
 
-@auth.get_password
-def get_password(username):
-    if username == "admin":
-        return "python"
-    return None
+@app.route("/login", methods=["POST"])
+def login():
+    # from IPython import embed
 
+    # embed()
+    username = request.json.get("username", None)
+    password = request.json.get("password", None)
+    if username != "test" or password != "test":
+        return jsonify({"msg": "Bad username or password"}), 401
 
-@auth.error_handler
-def unauthorized():
-    return make_response(jsonify({"error": "unauthorized access"}), 401)
+    access_token = create_access_token(identity=username)
+    return jsonify(access_token=access_token)
 
 
 tasks = [
@@ -41,12 +51,13 @@ def index():
 
 
 @app.route("/todo/api/v1.0/tasks", methods=["GET"])
-@auth.login_required()
+@jwt_required()
 def get_tasks():
     return jsonify({"tasks": [make_public_task(task) for task in tasks]})
 
 
 @app.route("/todo/api/v1.0/tasks/<int:task_id>", methods=["GET"])
+@jwt_required()
 def get_task(task_id):
     task = [task for task in tasks if task["id"] == task_id]
     if not task:
@@ -60,6 +71,7 @@ def not_found(error):
 
 
 @app.route("/todo/api/v1.0/tasks", methods=["POST"])
+@jwt_required()
 def create_task():
 
     if not request.json or "title" not in request.json:
@@ -75,6 +87,7 @@ def create_task():
 
 
 @app.route("/todo/api/v1.0/tasks/<int:task_id>", methods=["PUT"])
+@jwt_required()
 def update_task(task_id):
     task = [task for task in tasks if task["id"] == task_id]
     if not task:
@@ -92,6 +105,7 @@ def update_task(task_id):
 
 
 @app.route("/todo/api/v1.0/tasks/<int:task_id>", methods=["DELETE"])
+@jwt_required()
 def delete_task(task_id):
     task = [task for task in tasks if task["id"] == task_id]
     if not task:
